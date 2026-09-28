@@ -1,8 +1,11 @@
-"""Run InsertAnything closed-loop sim-to-real evaluation on a Franka server.
+"""Run InsertAnything closed-loop sim-to-real evaluation.
 
-The runner keeps the deployment path intentionally small:
+The deployment path stays:
 robot state -> observation -> policy -> action postprocessor -> safety guard
 -> pose command. Manual episode labels are entered from stdin.
+
+``--backend vega`` sends those pose commands through SteadyHand's Vega adapter.
+``--backend franka`` keeps the original HTTP robot server.
 """
 
 from __future__ import annotations
@@ -418,20 +421,44 @@ def _update_clip_stats(stats: dict[str, int], post_out, guard_out) -> dict[str, 
     return stats
 
 
-def run_regrasp_flow(args: argparse.Namespace, input_mgr: InputManager) -> None:
+class FrankaHttpRobot:
+    """Original Berkeley-SERL style HTTP backend."""
+
+    def __init__(self, server_url: str, open_endpoint: str, close_endpoint: str) -> None:
+        self.server_url = server_url
+        self.open_endpoint = open_endpoint
+        self.close_endpoint = close_endpoint
+
+    def fetch_state(self) -> RobotState:
+        return fetch_robot_state(self.server_url)
+
+    def send_pose6(self, pose6: np.ndarray) -> None:
+        send_pose6(self.server_url, pose6)
+
+    def open_gripper(self) -> None:
+        open_gripper(self.server_url, self.open_endpoint)
+
+    def close_gripper(self) -> None:
+        close_gripper(self.server_url, self.close_endpoint)
+
+    def shutdown(self) -> None:
+        return None
+
+
+def run_regrasp_flow(args: argparse.Namespace, input_mgr: InputManager, robot) -> None:
     print("[REGRASP] Move to grasp load pose.")
-    send_pose6(args.server_url, np.asarray(args.grasp_load_pose6, dtype=np.float64))
+    robot.send_pose6(np.asarray(args.grasp_load_pose6, dtype=np.float64))
     time.sleep(args.move_wait)
 
     print("[REGRASP] Open gripper.")
-    open_gripper(args.server_url, args.open_gripper_endpoint)
+    robot.open_gripper()
     input_mgr.wait_for_choice(
         valid={"g", "grasp", "ready"},
         prompt="[REGRASP] Place the peg, then input g/ready.",
     )
 
     print("[REGRASP] Close gripper.")
-    close_gripper(args.server_url, args.close_gripper_endpoint)
+    robot.close_gripper()
     time.sleep(args.move_wait)
     input_mgr.wait_for_choice(valid={"y", "yes", "ok"}, prompt="[REGRASP] Confirm the grasp with y/ok.")
 
@@ -445,7 +472,23 @@ def parse_args() -> argparse.Namespace:
         help="Calibration and deployment YAML path.",
     )
     parser.add_argument("--checkpoint", type=str, required=True, help="RL-Games checkpoint path.")
+    parser.add_argument("--backend", choices=("vega", "franka"), default="vega")
     parser.add_argument("--server-url", type=str, default="http://172.16.0.1:5000")
+    parser.add_argument(
+        "--steadyhand-root",
+        type=str,
+        default="/home/ubuntu/Desktop/ROCO-SteadyHand",
+        help="SteadyHand checkout used by --backend vega.",
+    )
+    parser.add_argument("--speed-scale", type=float, default=0.15)
+    parser.add_argument("--grip-current", type=float, default=None)
+    parser.add_argument("--confirm-head-motion", action="store_true")
+    parser.add_argument("--confirm-physical-motion", action="store_true")
+    parser.add_argument(
+        "--include-wrist-wrench",
+        action="store_true",
+        help="Copy Vega wrist wrench into the contact-force observation. Units are unverified.",
+    )
     parser.add_argument("--device", type=str, default="cpu")
     parser.add_argument("--num-episodes", type=int, default=10)
     parser.add_argument("--max-steps", type=int, default=300)
@@ -542,14 +585,37 @@ def main() -> None:
     input_mgr = InputManager()
     input_mgr.drain()
 
-    if not args.assume_grasped:
-        run_regrasp_flow(args, input_mgr)
+    if args.backend == "vega":
+        from vega_backend import VegaInsertRobot
+
+        include_wrench = bool(args.include_wrist_wrench) or args.contact_force_source != "none"
+        robot = VegaInsertRobot(
+            args.steadyhand_root,
+            speed_scale=float(args.speed_scale),
+            grip_current_a=args.grip_current,
+            assume_grasped=bool(args.assume_grasped),
+            include_wrist_wrench=include_wrench,
+            confirm_head_motion=bool(args.confirm_head_motion),
+            confirm_physical_motion=bool(args.confirm_physical_motion),
+        )
+        print("[INFO] Robot backend: Vega via SteadyHand")
+    else:
+        robot = FrankaHttpRobot(
+            args.server_url,
+            args.open_gripper_endpoint,
+            args.close_gripper_endpoint,
+        )
+        print(f"[INFO] Robot backend: Franka HTTP {args.server_url}")
 
     success_count = 0
     fail_count = 0
     abort_count = 0
 
     try:
+        if args.backend == "vega":
+            robot.connect()
+        if not args.assume_grasped:
+            run_regrasp_flow(args, input_mgr, robot)
         for episode_idx in range(1, int(args.num_episodes) + 1):
             print("\n" + "=" * 100)
             print(f"EPISODE {episode_idx}/{args.num_episodes}")
@@ -575,8 +641,7 @@ def main() -> None:
                 f"[EP {episode_idx}] Start offset xyz={_fmt_vec(start_offset, 5)}, "
                 f"yaw_offset={np.rad2deg(start_yaw_offset):+.2f} deg"
             )
-            send_pose6(
-                args.server_url,
+            robot.send_pose6(
                 pose7_to_pose6_xyzrpy(fingertip_target_to_api_target(start_pose, calib.T_AT)),
             )
             time.sleep(args.move_wait)
@@ -597,7 +662,7 @@ def main() -> None:
 
             for step_idx in range(1, int(args.max_steps) + 1):
                 step_t0 = time.monotonic()
-                robot_state = fetch_robot_state(args.server_url)
+                robot_state = robot.fetch_state()
 
                 obs_calib = _with_policy_observation_pos_rel_bias(
                     calib,
@@ -637,7 +702,7 @@ def main() -> None:
                 )
 
                 target_pose6 = pose7_to_pose6_xyzrpy(fingertip_target_to_api_target(guard_out.T_BT_safe, calib.T_AT))
-                send_pose6(args.server_url, target_pose6)
+                robot.send_pose6(target_pose6)
 
                 episode_steps = step_idx
                 clip_stats = _update_clip_stats(clip_stats, post_out, guard_out)
@@ -713,8 +778,7 @@ def main() -> None:
                     episode_result = "abort"
 
             print(f"[EP {episode_idx}] Retreat to T_BPRE.")
-            send_pose6(
-                args.server_url,
+            robot.send_pose6(
                 pose7_to_pose6_xyzrpy(fingertip_target_to_api_target(calib.T_BPRE, calib.T_AT)),
             )
             time.sleep(args.move_wait)
@@ -744,19 +808,22 @@ def main() -> None:
                 prompt="[NEXT] Input c/continue, r/regrasp, or q/quit.",
             )
             if next_choice in {"r", "regrasp"}:
-                run_regrasp_flow(args, input_mgr)
+                run_regrasp_flow(args, input_mgr, robot)
             elif next_choice in {"q", "quit"}:
                 print("[INFO] User requested experiment shutdown.")
                 break
     finally:
-        if args.return_to_load_pose_at_end:
-            print("[END] Return to grasp load pose.")
-            send_pose6(args.server_url, np.asarray(args.grasp_load_pose6, dtype=np.float64))
-            time.sleep(args.move_wait)
-        if args.open_gripper_at_end:
-            print("[END] Open gripper.")
-            open_gripper(args.server_url, args.open_gripper_endpoint)
-            time.sleep(1.0)
+        try:
+            if args.return_to_load_pose_at_end:
+                print("[END] Return to grasp load pose.")
+                robot.send_pose6(np.asarray(args.grasp_load_pose6, dtype=np.float64))
+                time.sleep(args.move_wait)
+            if args.open_gripper_at_end:
+                print("[END] Open gripper.")
+                robot.open_gripper()
+                time.sleep(1.0)
+        finally:
+            robot.shutdown()
 
     print("=" * 100)
     print("Experiment finished.")
