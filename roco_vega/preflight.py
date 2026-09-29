@@ -6,9 +6,9 @@ import numpy as np
 from . import dependencies
 from steadyhand.config import read_json, missing_motion_setup
 from steadyhand.board_calibration import load_board_calibration
-from transforms import quat_to_rotmat
 from .task_spec import pose, vector, positive
 from .insertion import verify_checkpoint, HEXAGON_SHA256
+from .motion import VerticalMotion, pick_heights
 
 
 def digest(path):
@@ -64,6 +64,7 @@ def check_preflight(cfg, tasks, *, check_weights=True, stage="full"):
     floor = float(cfg["tcp_floor_m"])
     if not np.isfinite(floor):
         raise ValueError("TCP floor must be finite")
+    motion = VerticalMotion.parse(cfg.get("motion"))
     positive(cfg["command_timeout_s"], "command timeout")
     positive(cfg["board_max_translation_m"], "board translation")
     positive(cfg["board_max_rotation_deg"], "board rotation")
@@ -76,8 +77,10 @@ def check_preflight(cfg, tasks, *, check_weights=True, stage="full"):
 
     def waypoint(value):
         p = pose(value, "waypoint")
-        if p[2] < floor:
-            raise ValueError("Waypoint below configured TCP floor")
+        try:
+            motion.check(p, floor)
+        except RuntimeError as exc:
+            raise ValueError(f"Invalid waypoint: {exc}") from exc
         return p
 
     def route(values, name):
@@ -87,13 +90,17 @@ def check_preflight(cfg, tasks, *, check_weights=True, stage="full"):
             waypoint(v)
 
     route(cfg["camera_clear_waypoints_xyzw"], "camera clear")
+    resets = cfg.get("reset_waypoints_xyzw", [])
+    if not isinstance(resets, list):
+        raise ValueError("reset_waypoints_xyzw must be a list (empty disables reset)")
+    for p in resets:
+        waypoint(p)
     for task in tasks:
         if approach:
+            waypoint(task.success_pose)
             margin = task.criteria.overshoot_m if insertion else 0
             if task.success_pose[2]-margin < floor:
                 raise ValueError(f"{task.task_id}: insertion workspace below TCP floor")
-            if quat_to_rotmat(task.success_pose[3:])[2, 2] < np.cos(.12):
-                raise ValueError(f"{task.task_id}: A is not corrected vertical tip_r")
             route([v.tolist() for v in task.transfer_waypoints], "transfer")
             if any(p[2] < task.entry_pose[2]-1e-9 for p in task.transfer_waypoints):
                 raise ValueError("Transfer waypoints must remain at or above A + entry_height")
@@ -112,12 +119,17 @@ def check_preflight(cfg, tasks, *, check_weights=True, stage="full"):
             size = np.asarray(p["size_range_m"], dtype=float)
             if size.shape != (2, 2) or not np.isfinite(size).all() or np.any(size <= 0) or np.any(size[0] >= size[1]):
                 raise ValueError("Invalid component size range")
-            q = waypoint([0, 0, p["hover_z_m"], *p["quaternion_xyzw"]])
-            if q[2] < floor+.06 or quat_to_rotmat(q[3:])[2, 2] < np.cos(.12):
+            grasp_z, hover_z, lift_z = pick_heights(p)
+            q = waypoint([0, 0, hover_z, *p["quaternion_xyzw"]])
+            if q[2] < floor+.06:
                 raise ValueError("Wrist alignment requires vertical tip_r and 60 mm TCP-floor clearance")
-            if not floor <= float(p["grasp_z_m"]) < q[2]:
+            if not floor <= grasp_z < q[2]:
                 raise ValueError("Invalid grasp / hover heights")
             route(p["approach_waypoints_xyzw"], "pick approach")
+            if any(v[2] < hover_z for v in p["approach_waypoints_xyzw"]):
+                raise ValueError("Pick approach route must stay above the 5 cm hover")
+            if approach and any(v[2] < max(lift_z, task.entry_pose[2]) for v in task.transfer_waypoints):
+                raise ValueError("Transfer route must stay above pick lift and insertion entry")
             for key in ("feature_uv", "goal_uv"):
                 if np.any(vector(p[key], 2, key) < 0):
                     raise ValueError("Pixel coordinates must be nonnegative")
@@ -138,8 +150,10 @@ def check_preflight(cfg, tasks, *, check_weights=True, stage="full"):
             route([v.tolist() for v in task.manual_load_waypoints], "manual load")
         for verification_stage in (("retention", "placement") if insertion else ("retention",)):
             v = task.verify[verification_stage]
-            if verification_stage == "placement":
-                waypoint(v["view_pose_xyzw"])
+            if verification_stage == "placement" and v["mode"] == "template":
+                view = waypoint(v["view_pose_xyzw"])
+                if view[2] < task.success_pose[2]+task.retreat_height_m:
+                    raise ValueError("Placement view must stay above the 15 cm post-release lift")
             if v["mode"] == "operator":
                 if cfg.get("supervised") is not True:
                     raise ValueError("operator verification requires supervised=true")

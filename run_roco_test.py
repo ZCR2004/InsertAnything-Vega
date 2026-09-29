@@ -54,7 +54,8 @@ def main(argv=None):
     from roco_vega.frontend import SteadyHandFrontend
     adapter = FreshVegaAdapter(robot_cfg)
     adapter.prepare()
-    session = RobotSession(adapter, floor_m=cfg["tcp_floor_m"], command_timeout_s=cfg["command_timeout_s"])
+    session = RobotSession(adapter, floor_m=cfg["tcp_floor_m"], command_timeout_s=cfg["command_timeout_s"],
+                           motion=cfg.get("motion"))
     journal = Journal(log_folder(args))
     journal.emit("commissioning_configuration", stage=args.test, task=args.task, config=cfg)
     frontend = SteadyHandFrontend(session, cfg, robot_cfg, journal)

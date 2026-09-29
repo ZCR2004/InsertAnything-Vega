@@ -7,6 +7,46 @@ from steadyhand.adapters.vega import VegaAdapter
 
 
 class FreshVegaAdapter(VegaAdapter):
+    def plan_tcp_path(self, targets, motion, floor_m):
+        """Pre-solve Cartesian segments and audit sampled joint interpolation.
+
+        Uses no motion commands. The real SDK curve can differ from linear joint
+        interpolation, so RobotSession also checks measured tilt while executing.
+        """
+        from .session import to_pose, from_pose
+        from .geometry import angle
+        self._require_robot()
+        seed = np.asarray(self._read_joint_positions(), dtype=float)
+        start = from_pose(self._kinematics.forward(seed))
+        plan = []
+        for target in targets:
+            q = np.asarray(self._kinematics.solve(to_pose(target), seed), dtype=float)
+            self._check_joint_limits(q)
+            joint_delta = float(np.max(np.abs(q-seed)))
+            if joint_delta > motion.max_joint_step_rad:
+                raise RuntimeError("IK_JOINT_BRANCH_JUMP: use a different taught route")
+            endpoint = from_pose(self._kinematics.forward(q))
+            if (np.linalg.norm(endpoint[:3]-target[:3]) > motion.position_tolerance_m
+                    or angle(endpoint, target) > motion.orientation_tolerance_rad):
+                raise RuntimeError("IK_ENDPOINT_MISMATCH")
+            count = max(2, int(np.ceil(joint_delta/motion.joint_path_sample_rad)))
+            for fraction in np.linspace(0, 1, count+1):
+                point = from_pose(self._kinematics.forward(seed+fraction*(q-seed)))
+                motion.check(point, floor_m, measured=True)
+                expected_xyz = start[:3]+fraction*(target[:3]-start[:3])
+                if np.linalg.norm(point[:3]-expected_xyz) > motion.position_tolerance_m:
+                    raise RuntimeError("IK_PATH_LEAVES_CARTESIAN_SEGMENT")
+            plan.append(q.copy())
+            seed, start = q, endpoint
+        return plan
+
+    def move_planned_joints(self, target, *, speed_scale):
+        try:
+            self._move_joints(target, speed_scale=speed_scale)
+        except BaseException:
+            self._stop_after_failure()
+            raise
+
     def fresh_tcp_state(self):
         first = self._state_timestamp()
         deadline = time.monotonic()+.5

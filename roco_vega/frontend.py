@@ -8,6 +8,7 @@ from steadyhand.board_calibration import (load_board_calibration, board_geometry
 from steadyhand.board_geometry import BOARD_SIZE_M, configured_board_plane_z
 from .session import from_pose
 from .geometry import angle
+from .motion import pick_heights
 
 
 def select_part(parts, expected_xy, radius, ambiguity_margin, size_range):
@@ -109,10 +110,21 @@ class SteadyHandFrontend:
 
     def pick(self, task):
         p = task.pick
-        hover = np.r_[self.pick_xy, p["hover_z_m"], p["quaternion_xyzw"]]
+        grasp_z, hover_z, lift_z = pick_heights(p)
+        hover = np.r_[self.pick_xy, hover_z, p["quaternion_xyzw"]]
         for waypoint in p["approach_waypoints_xyzw"]:
             self.s.move(waypoint, self.cfg["free_speed_scale"])
+        # Approach XY above the object before any vertical descent.
+        current = self.s.sample().pose
+        high = current.copy()
+        high[2] = max(current[2], hover_z)
+        if high[2] > current[2]+1e-9:
+            self.s.move(high, self.cfg["free_speed_scale"])
+        above = hover.copy()
+        above[2] = high[2]
+        self.s.move(above, self.cfg["free_speed_scale"])
         self.s.move(hover, self.cfg["free_speed_scale"])
+        self.j.emit("pick_hover_reached", task=task.task_id, hover_height_m=p.get("hover_height_m", .05))
         self.s.open_gripper(task.task_id)
         if not self.opened(task):
             raise RuntimeError("GRIPPER_NOT_OPEN")
@@ -123,12 +135,16 @@ class SteadyHandFrontend:
             raise RuntimeError("WRIST_ALIGNMENT_FAILED")
         aligned = from_pose(self.s.get_tcp_pose())
         grasp = aligned.copy()
-        grasp[2] = p["grasp_z_m"]
+        grasp[2] = grasp_z
         self.pick_hover_pose, self.pick_grasp_pose = aligned.copy(), grasp.copy()
         self.s.move(grasp, p["descent_speed_scale"])
         self.s.adapter.configure_grip(p["current_a"], p["speed_dps"])
         self.s.grip(task)
-        self.s.move(aligned, p["lift_speed_scale"])
+        lift = aligned.copy()
+        lift[2] = lift_z
+        self.pick_lift_pose = lift.copy()
+        self.s.move(lift, p["lift_speed_scale"])
+        self.j.emit("pick_lifted", task=task.task_id, lift_height_m=p.get("lift_height_m", .10))
         if not self.retained(task):
             raise RuntimeError("GRASP_LOST")
         if not self._verify("retention", task):
@@ -139,14 +155,14 @@ class SteadyHandFrontend:
         if not self.retained(task):
             raise RuntimeError("GRASP_LOST")
         current = self.s.sample().pose
-        if (np.linalg.norm(current[:3]-self.pick_hover_pose[:3]) > .004
-                or angle(current, self.pick_hover_pose) > .03):
+        if (np.linalg.norm(current[:3]-self.pick_lift_pose[:3]) > .004
+                or angle(current, self.pick_lift_pose) > .03):
             raise RuntimeError("PICK_TEST_RETURN_REQUIRES_ORIGINAL_HOVER")
         self.s.move(self.pick_grasp_pose, task.pick["descent_speed_scale"])
         self.s.open_gripper(task.task_id)
         if not self.opened(task):
             raise RuntimeError("RELEASE_FAILED")
-        self.s.move(self.pick_hover_pose, task.pick["lift_speed_scale"])
+        self.s.move(self.pick_lift_pose, task.pick["lift_speed_scale"])
 
     def retained(self, task):
         status = self.s.adapter.gripper_status()
@@ -182,19 +198,42 @@ class SteadyHandFrontend:
         return np.isfinite(score) and score >= v["min_score"]
 
     def transfer(self, task):
+        current = self.s.sample().pose
+        # Clear the source vertically, then traverse the taught high route.
+        safe_z = max(current[2], task.entry_pose[2], *(p[2] for p in task.transfer_waypoints))
+        if any(p[2] < max(current[2], task.entry_pose[2])-self.s.motion.position_tolerance_m
+               for p in task.transfer_waypoints):
+            raise RuntimeError("TRANSFER_ROUTE_BELOW_LIFT_OR_ENTRY")
+        high = current.copy()
+        high[2] = safe_z
+        self.s.move(high, self.cfg["free_speed_scale"])
         for waypoint in task.transfer_waypoints:
             self.s.move(waypoint, self.cfg["free_speed_scale"])
+        above = task.entry_pose.copy()
+        above[2] = max(self.s.sample().pose[2], task.entry_pose[2])
+        self.s.move(above, self.cfg["free_speed_scale"])
         self.s.move(task.entry_pose, task.speed_scale)
 
     def retreat(self, task):
         current = self.s.sample().pose
         target = current.copy()
-        target[2] = task.entry_pose[2]
+        target[2] += task.retreat_height_m
         self.s.move(target, task.speed_scale)
+        self.j.emit("post_release_lift", task=task.task_id, height_m=task.retreat_height_m,
+                    start_xyzw=current, target_xyzw=target)
 
     def placed(self, task):
-        self.s.move(task.verify["placement"]["view_pose_xyzw"], task.speed_scale)
+        # Operator verifies at the 15 cm retreat; no unnecessary downward return.
+        if task.verify["placement"]["mode"] == "template":
+            self.s.move(task.verify["placement"]["view_pose_xyzw"], task.speed_scale)
         return self._verify("placement", task)
+
+    def finish_task(self, task):
+        # Empty means stay at the high retreat/view, then take the next camera route.
+        for waypoint in self.cfg.get("reset_waypoints_xyzw", []):
+            self.s.move(waypoint, self.cfg["free_speed_scale"])
+        self.j.emit("ready_for_next_task", task=task.task_id,
+                    reset_used=bool(self.cfg.get("reset_waypoints_xyzw")))
 
     def verify_already_held(self, task):
         if not self.retained(task) or not self._verify("retention", task):

@@ -15,7 +15,10 @@ def main(argv=None):
     p.add_argument("--config", type=Path)
     p.add_argument("--output", type=Path, help="new calibration template filename")
     p.add_argument("--log-dir", type=Path, help="new directory, never appended to an older run")
-    p.add_argument("--task", help="single canonical task ID; default runs the nine tasks")
+    from roco_vega.task_spec import ORDER
+    selection = p.add_mutually_exclusive_group()
+    selection.add_argument("--task", choices=ORDER, help="single task; default runs nine, batteries first")
+    selection.add_argument("--batteries-only", action="store_true", help="complete both battery pick/insert cycles; no RL")
     p.add_argument("--confirm-empty-gripper", action="store_true", help="live connection homes gripper")
     p.add_argument("--confirm-calibrated-paths", action="store_true", help="waypoints were checked on this robot")
     args = p.parse_args(argv)
@@ -33,13 +36,14 @@ def main(argv=None):
     if args.mode == "simulate":
         from roco_vega.orchestrator import Journal
         from roco_vega.simulation import simulate
-        print(json.dumps(simulate(Journal(log_folder(args))), indent=2))
+        print(json.dumps(simulate(Journal(log_folder(args)), task_id=args.task,
+                                  batteries_only=args.batteries_only), indent=2))
         return 0
     if not args.config:
         p.error("check/live require --config")
-    from roco_vega.task_spec import load_config, ORDER
+    from roco_vega.task_spec import load_config
     from roco_vega.preflight import check_preflight
-    cfg, tasks = load_config(args.config, task_id=args.task)
+    cfg, tasks = load_config(args.config, task_id=args.task, batteries_only=args.batteries_only)
     robot_cfg = check_preflight(cfg, tasks)
     actor = prepare_actor(cfg, tasks)
     if args.mode == "check":
@@ -55,7 +59,8 @@ def main(argv=None):
     from roco_vega.orchestrator import Orchestrator, Journal
     adapter = FreshVegaAdapter(robot_cfg)
     adapter.prepare()  # URDF/IK setup only, before hardware connection
-    session = RobotSession(adapter, floor_m=cfg["tcp_floor_m"], command_timeout_s=cfg["command_timeout_s"])
+    session = RobotSession(adapter, floor_m=cfg["tcp_floor_m"], command_timeout_s=cfg["command_timeout_s"],
+                           motion=cfg.get("motion"))
     journal = Journal(log_folder(args))
     journal.emit("configuration", config=cfg, selected_tasks=[t.task_id for t in tasks])
     frontend = SteadyHandFrontend(session, cfg, robot_cfg, journal)

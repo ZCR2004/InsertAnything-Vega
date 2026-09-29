@@ -1,7 +1,7 @@
 """Deterministic fake hardware for integration checks, NOT an insertion simulator."""
 from __future__ import annotations
 import numpy as np
-from .task_spec import ORDER, TaskSpec
+from .task_spec import ORDER, EXECUTION_ORDER, BATTERIES, TaskSpec
 from .session import RobotSession, to_pose, from_pose
 
 
@@ -113,7 +113,12 @@ class FakeFrontend:
 
     def retreat(self, task):
         self.calls.append((task.task_id, "retreat"))
-        self.s.move(task.entry_pose, task.speed_scale)
+        target = self.s.sample().pose
+        target[2] += task.retreat_height_m
+        self.s.move(target, task.speed_scale)
+
+    def finish_task(self, task):
+        self.calls.append((task.task_id, "ready"))
 
     def placed(self, task):
         self.calls.append((task.task_id, "placed"))
@@ -142,12 +147,15 @@ def synthetic_tasks():
     return result
 
 
-def simulate(journal):
+def simulate(journal, *, task_id=None, batteries_only=False):
     from .orchestrator import Orchestrator
     clock, adapter, actor = FakeClock(), FakeAdapter(), FakeActor()
     session = RobotSession(adapter, floor_m=0, clock=clock)
     frontend = FakeFrontend(session)
-    completed = Orchestrator(session, frontend, actor, journal, clock=clock, sleep=clock.sleep).run(synthetic_tasks())
+    by_id = {t.task_id: t for t in synthetic_tasks()}
+    selected = [task_id] if task_id else (BATTERIES if batteries_only else EXECUTION_ORDER)
+    tasks = [by_id[name] for name in selected]
+    completed = Orchestrator(session, frontend, actor, journal, clock=clock, sleep=clock.sleep).run(tasks)
     return {"mode": "fake_hardware", "completed": completed, "actor_resets": actor.resets,
             "observations": len(actor.observations), "connections": adapter.calls.count("connect"),
             "gripper_homes": adapter.calls.count("home"), "physical_success_claim": False}

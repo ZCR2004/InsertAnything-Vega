@@ -8,6 +8,8 @@ import numpy as np
 
 ORDER = ("gear_60teeth", "gear_20teeth", "rod_16mm", "bolt_8mm", "usb_a",
          "hdmi", "pin", "battery_size1", "battery_size5")
+BATTERIES = ("battery_size1", "battery_size5")
+EXECUTION_ORDER = BATTERIES + tuple(name for name in ORDER if name not in BATTERIES)
 
 
 def vector(value, size, name):
@@ -66,6 +68,7 @@ class TaskSpec:
     policy_mapping: dict | None
     verify: dict
     manual_load_waypoints: tuple = ()
+    retreat_height_m: float = .15
 
     @property
     def entry_pose(self):
@@ -109,6 +112,9 @@ class TaskSpec:
         if speed > 1:
             raise ValueError("speed_scale must be <= 1")
         criteria = SuccessCriteria.parse(value["success"])
+        retreat = positive(value.get("retreat_height_m", .15), "retreat_height_m")
+        if abs(retreat-.15) > 1e-9:
+            raise ValueError("Post-release retreat must be 0.15 m")
         if criteria.z_tolerance_m >= h:
             raise ValueError("success tolerance must not include entry pose")
         mapping = value.get("policy_mapping")
@@ -124,7 +130,8 @@ class TaskSpec:
                    positive(value["xy_workspace_m"], "xy_workspace_m"), step, speed,
                    dict(value["pick"]), tuple(pose(v, "transfer waypoint") for v in value["transfer_waypoints_xyzw"]),
                    mapping, dict(value["verification"]),
-                   tuple(pose(v, "manual load waypoint") for v in value.get("manual_load_waypoints_xyzw", [])))
+                   tuple(pose(v, "manual load waypoint") for v in value.get("manual_load_waypoints_xyzw", [])),
+                   retreat)
 
 
 @dataclass(frozen=True)
@@ -180,14 +187,16 @@ def parse_stage_task(value, stage):
                             tuple(pose(v, "transfer waypoint") for v in value["transfer_waypoints_xyzw"]))
 
 
-def load_config(path, *, task_id=None, stage="full"):
+def load_config(path, *, task_id=None, stage="full", batteries_only=False):
     path = Path(path).resolve()
     cfg = json.loads(path.read_text(encoding="utf-8-sig"))
     if stage not in ("full", "plan", "pick", "insert"):
         raise ValueError("Unknown commissioning stage")
     if stage != "full" and task_id is None:
         raise ValueError("Stage tests require a single task_id")
-    ready = cfg.get("calibrated") is True or (task_id is not None and cfg.get("base_calibrated") is True)
+    if batteries_only and (task_id is not None or stage != "full"):
+        raise ValueError("batteries_only is a full-flow subset, incompatible with task/stage selection")
+    ready = cfg.get("calibrated") is True or ((task_id is not None or batteries_only) and cfg.get("base_calibrated") is True)
     if cfg.get("schema_version") != 1 or not ready:
         raise ValueError("Configuration is a template: complete and validate physical calibration first")
     if cfg.get("working_arm") != "right" or cfg.get("tcp_frame") != "tip_r":
@@ -196,7 +205,9 @@ def load_config(path, *, task_id=None, stage="full"):
         raise ValueError("Configuration must contain the nine tasks in canonical order")
     if task_id is not None and task_id not in ORDER:
         raise ValueError(f"Unknown task: {task_id}")
-    tasks = [parse_stage_task(v, stage) for v in cfg["tasks"] if task_id is None or v["task_id"] == task_id]
+    by_id = {v["task_id"]: v for v in cfg["tasks"]}
+    selected = [task_id] if task_id else (BATTERIES if batteries_only else EXECUTION_ORDER)
+    tasks = [parse_stage_task(by_id[name], stage) for name in selected]
     for key in ("robot_config", "board_calibration"):
         p = (path.parent / cfg[key]).resolve()
         if not p.is_file():

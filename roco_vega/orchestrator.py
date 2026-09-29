@@ -69,6 +69,7 @@ class Orchestrator:
                 j.emit("retreated", task=task.task_id)
                 if not f.placed(task):
                     raise RuntimeError("PLACEMENT_UNVERIFIED")
+                f.finish_task(task)
                 result["status"] = "completed"
                 j.complete(task.task_id, result)
                 j.emit("task_completed", task=task.task_id, result=result)

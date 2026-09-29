@@ -21,7 +21,7 @@ from roco_vega.monitor import InsertionMonitor, Sample
 from roco_vega.insertion import RLController, PlannedController, run_insertion
 from roco_vega.geometry import PolicyFrame, constrain_target
 from roco_vega.frontend import select_part
-from roco_vega.task_spec import ORDER, load_config, TaskSpec
+from roco_vega.task_spec import ORDER, EXECUTION_ORDER, BATTERIES, load_config, TaskSpec
 from roco_vega.template import calibration_template
 from roco_vega.preflight import check_preflight, digest
 from transforms import euler_xyz_to_quat
@@ -253,11 +253,13 @@ class ConfigurationTest(unittest.TestCase):
             robot_config_sha256=digest(folder/"robot.local.json"), board_sha256=digest(folder/"board.local.json"),
             measured_at_utc=board["generated_at_utc"], grasp_convention="SYNTHETIC TEST ONLY")
         for t, synthetic in zip(cfg["tasks"], synthetic_tasks()):
+            high = synthetic.entry_pose.copy()
+            high[2] = .20
             t.update(calibrated=True, success_pose_xyzw=synthetic.success_pose.tolist(),
                      xy_workspace_m=.02, speed_scale=.5, policy_mapping=synthetic.policy_mapping,
-                     success=dict(vars(synthetic.criteria)), transfer_waypoints_xyzw=[synthetic.entry_pose.tolist()])
+                     success=dict(vars(synthetic.criteria)), transfer_waypoints_xyzw=[high.tolist()])
             t["pick"].update(source_board_xy_m=[0,0], match_radius_m=.02, ambiguity_margin_m=.003,
-                size_range_m=[[.001,.001],[.03,.03]], hover_z_m=.2, grasp_z_m=.1,
+                size_range_m=[[.001,.001],[.03,.03]], grasp_z_m=.1,
                 quaternion_xyzw=[0,0,0,1], approach_waypoints_xyzw=[[0,0,.2,0,0,0,1]],
                 feature_uv=[100,100], goal_uv=[100,100], current_a=.2, speed_dps=60,
                 descent_speed_scale=.5, lift_speed_scale=.5, held_fraction_range=[.1,.7], open_min_fraction=.9)
@@ -427,7 +429,7 @@ class StageTest(unittest.TestCase):
     def test_battery_full_task_needs_no_checkpoint(self):
         from run_roco_vega import prepare_actor
         cfg, tasks = ConfigurationTest().valid_config(self.temp.name)
-        self.assertIsNone(prepare_actor(cfg, tasks[-2:]))
+        self.assertIsNone(prepare_actor(cfg, tasks[:2]))
 
 
 class PoseRecorderTest(unittest.TestCase):

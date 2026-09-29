@@ -7,14 +7,17 @@
 ## 已实现的流程
 
 ```text
-板定位 / 零件区域关联 → 腕部视觉 XY 对齐 → 限流夹取 → 提起并验证仍持有
+竖直初始姿态 → 板定位 / 零件区域关联 → 抓取TCP上方5 cm → 腕部视觉 XY 对齐
+→ 竖直下降 → 限流夹取 → 默认抬升10 cm并验证仍持有
 → 已标定转运路点 → A 正上方 45 mm → 静止读回检查
 → RL（7 类）或小步规划下插（2 类电池）
 → 深度 + 横向 + 姿态容差持续满足 → 停止下压 → 松爪并确认
-→ 垂直退离 → 放置验证 → 写入 progress.json → 下一任务
+→ 原XY垂直上抬15 cm → 放置验证 → 可选复位 → 写入 progress.json → 下一任务
 ```
 
-九任务顺序为 `gear_60teeth, gear_20teeth, rod_16mm, bolt_8mm, usb_a, hdmi, pin, battery_size1, battery_size5`。RL 使用同一份六边形 **Hexagon-III** checkpoint，每项任务重新清空 LSTM、动作 EMA、上一动作和成功判定状态。两种电池不调用 actor。
+九任务执行顺序为 `battery_size1, battery_size5, gear_60teeth, gear_20teeth, rod_16mm, bolt_8mm, usb_a, hdmi, pin`，先完成两个无RL电池。配置存储列表仍采用原物体顺序。RL 使用同一份六边形 **Hexagon-III** checkpoint，每项任务重新清空 LSTM、动作 EMA、上一动作和成功判定状态。两种电池不调用 actor。
+
+竖直约束覆盖起始读回、拍板、抓取、转运、插入和复位；yaw允许改变。所有移动经统一会话分成小段，真实adapter在发命令前求解全部段的IK并检查采样关节插值，执行时检查姿态读回。仍需确认校正后 `tip_r` 轴确实对应物理爪向下；不从未知倾斜姿态自动回正，也不宣称SDK连续轨迹或碰撞已经得到真机验证。默认限制和迁移说明见现场操作顺序。
 
 一个 `RobotSession` 持有一份机器人、相机和夹爪连接。夹爪仅在空爪启动时标定一次，抓住物体后不会重新连接或 home。超时、取消、状态陈旧、丢失抓取、超深、验证失败都会停止整个序列，不自动重试、不盲退、不自动张爪。Ctrl+C 停止活动命令并请求软件急停；日志不能替代现场确认。
 
@@ -24,7 +27,8 @@
 
 ```bash
 python -m pip install -r requirements-roco.txt
-python -m unittest -v test_roco_vega
+python -m unittest -v test_roco_vega test_roco_motion
+python run_roco_vega.py --mode simulate --batteries-only
 python run_roco_vega.py --mode simulate
 python run_roco_vega.py --mode template --output configs/roco.local.json
 ```
@@ -38,7 +42,7 @@ python run_roco_vega.py --mode template --output configs/roco.local.json
 1. 在 `configs/robot.local.json` 保存经过核对的 SteadyHand 机器人配置。可以参考 `third_party/steadyhand/configs/robots/vega.json` 的结构，但不能直接采用其他现场的机械臂位置、相机修正或夹爪电流。相对 URDF/driver 路径沿用 SteadyHand 的根目录解析方式，现场路径可改成绝对路径。
 2. 用固定版本 SteadyHand 的五点标定工具得到 `configs/board.local.json`（schema 2，包含板轴、表面和相机角点）。该配置自带 12 小时时效检查。固定板面/头部姿态，只对允许范围内的板 XY 平移补偿；板旋转或高度变化需要重新标定。上游 fallback 文件是别人的测量记录，不是本机标定。
 3. 每种物体保持一致夹持深度与朝向、末端垂直向下，记录**已成功插入时**的真实 `tip_r` 位姿 A 到 `success_pose_xyzw`，单位 m，顺序 `[x,y,z,qx,qy,qz,qw]`。这里既不能填孔中心，也不能用空爪 TCP 代替夹持状态 A。Vega 修正后 `tip_r` 的垂直约定与 Franka 局部工具轴不同，不能照抄 Franka 的 roll=π。
-4. 分别标定抓取 hover/下降高度、图像 feature/goal 像素、物体区域与尺寸范围、夹持宽度、电流/速度、转运路点、验证视角和容差。`entry_height_m` 默认 0.045，必须在 0.04～0.05 内，切 RL 时再次检查实测位置。`step_m` 是每轴单次命令位移上限（默认 1 mm），不是力限制。转运采用已核查的路点加 IK/SDK 轨迹，不含全局碰撞规划。
+4. 分别标定抓取TCP高度 `grasp_z_m`、图像feature/goal像素、物体区域与尺寸范围、夹持宽度、电流/速度、转运路点、验证视角和容差。抓取悬停为该TCP高度+`hover_height_m=0.05`，抬升默认+`lift_height_m=0.10`；转运路点必须高于抬升点和插入中间点。`entry_height_m` 默认0.045，必须在0.04～0.05内，切RL时再次检查实测位置。以上距离均相对TCP目标，不是未经夹持偏移换算的物体表面/孔口。`step_m` 是每轴单次命令位移上限（默认1 mm），不是力限制。松爪后退离15 cm，`reset_waypoints_xyzw=[]` 默认不复位。转运不含全局碰撞规划。
 5. 填 `calibration_identity` 的机器人名、base/TCP、时间、夹持约定以及机器人配置、板标定文件 SHA256；绑定实际 checkpoint SHA256。文件变化后应重核标定再更新哈希，而不是用哈希代替标定。Linux 可用 `sha256sum`，PowerShell 可用 `Get-FileHash -Algorithm SHA256`。
 6. 确认所有任务和 policy mapping 后再置各项 `calibrated/validated=true`。`head_q_rad` 是 **3 维**，应与五点标定时相同。配置与测试路径必须核对整段机械臂运动；TCP 不低于 floor 不等于整臂无碰撞。
 
@@ -50,7 +54,7 @@ python run_roco_vega.py --mode template --output configs/roco.local.json
  "view_pose_xyzw":["替换为7个实测数值"]}
 ```
 
-以上像素只是字段示意，必须实测。放置验证的视角随板 XY 平移更新；抓取接近路点与 camera-clear 路点是固定 base 路点。外观验证不能证明 USB 电气连接或精确啮合。深度使用 TCP 相对 A 的垂直高度，必须与同一夹持关系配套，否则会出现物体滑脱但 TCP 到位的误判。
+以上像素只是字段示意，必须实测。图像放置验证视角必须在15 cm退离高度以上，随板XY平移更新；人工验证留在退离位置，不另行移动。抓取接近、camera-clear和可选复位路点是固定base路点。外观验证不能证明USB电气连接或精确啮合。深度使用TCP相对A的垂直高度，必须与同一夹持关系配套，否则会出现物体滑脱但TCP到位的误判。
 
 ## 六边形策略的坐标与力输入
 
@@ -85,6 +89,15 @@ python run_roco_vega.py --mode live --config configs/roco.local.json \
 
 去掉 `--task usb_a` 且总 `calibrated=true` 才执行九任务。SDK `Robot()` 本身会引起头部回零，仍需在本机机器人配置中核实并设置 `allow_robot_init_head_motion=true`；不会偷偷覆盖这个上游开关。CLI 不提供“拿着物体重新连接后跳过 home”的选项。独立 `run_roco_test.py --test insert` 从空爪启动，在同一会话里提示手动装夹，然后进入该任务的插入流程。
 
+只连跑两电池的完整自动抓取/插入流程，不加载RL模型：
+
+```bash
+python run_roco_vega.py --mode check --config configs/roco.local.json --batteries-only
+python run_roco_vega.py --mode live --config configs/roco.local.json --batteries-only --confirm-empty-gripper --confirm-calibrated-paths
+```
+
+该子集仅要求公共标定和两个电池完成；七个RL任务可留空。所有真机启动仍要求现场竖直起始姿态和已验证路径。
+
 失败后保留 `events.jsonl` 与原子更新的 `progress.json`。重启不会默默跳过旧任务，必须核实场景后明确选择单任务或重排执行。本轮调度不调用旧的 `run_multi_episode_closed_loop.py`；旧脚本仍是原单孔实验入口，不用于比赛串行任务。
 
 ## 模块与验证范围
@@ -92,15 +105,15 @@ python run_roco_vega.py --mode live --config configs/roco.local.json \
 | 模块 | 作用 |
 |---|---|
 | `frontend.py` | SteadyHand 板识别、已教区域关联、腕部 XY servo、抓取和放置验证 |
-| `session.py` / `hardware.py` | 共享会话、有限等待、取消和新鲜状态读回 |
+| `motion.py` / `session.py` / `hardware.py` | 全程竖直约束、笛卡尔分段、IK路径检查、取消和新鲜状态读回 |
 | `geometry.py` / `insertion.py` | Vega↔策略坐标、26D 零力观测、LSTM、RL/规划插入 |
 | `monitor.py` / `orchestrator.py` | 深度驻留、失败分支、释放退离、九任务调度和日志 |
 | `task_spec.py` / `preflight.py` | 标定合同、身份绑定、完整运行前检查 |
-| `test_roco_vega.py` | 假硬件全流程与故障回归 |
+| `test_roco_vega.py` / `test_roco_motion.py` | 假硬件全流程、生产frontend和姿态故障回归 |
 | `../run_roco_test.py` / `commissioning.py` | 独立 plan、pick、insert 阶段测试 |
 | `../record_roco_pose.py` | 无运动的实测 TCP 位姿记录 |
 | `../run_roco_calibration.py` | 使用本机配置调用固定版 TCP/相机/板面标定工具 |
 
 识别接入的是固定版本 SteadyHand 的几何/图像处理；零件通过已教区域和尺寸匹配，并拒绝歧义。它不是任意散乱、任意遮挡场景下的语义识别器。真机接触效果、零力策略成功率、视觉模板阈值与周期稳定性仍需现场验证。
 
-2026-09-29 本地验证：Python 3.10 下 28 项新测试、5 项原 Vega backend 测试通过，九任务假硬件 CLI 完成（七次 actor reset、一次 robot connect、一次 gripper home），Python 编译检查与 `git diff --check` 通过。测试环境复用了前次审查的 PyYAML/requests 依赖副本，没有安装现场 SDK、Torch 或该 checkpoint；因此本次没有真实网络前向、视觉图像联调或真机运行。`--mode check` 已提供现场 checkpoint 前向检验，必须在配置完成后执行。
+2026-09-29 更新验证：Python 3.10下57项集成、配置及运动检查通过，包括生产frontend上的双电池抓取/规划插入、释放后15 cm退离与复位，及命令前/运动中的倾斜拒绝。测试环境复用了前次审查的PyYAML/requests依赖副本，没有安装现场SDK、Torch或该checkpoint，因此没有真实网络前向、视觉图像联调或真机运行。`--mode check` 已提供现场checkpoint前向检验，须在配置完成后执行。
