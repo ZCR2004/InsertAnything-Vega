@@ -102,6 +102,13 @@ class SafetyGuard:
         delta_step_in = p_in - p_current
 
         p_safe = p_in.copy()
+        if not all(np.all(np.isfinite(p)) for p in (p_current, p_in, p_hole, p_pre)):
+            raise ValueError("Non-finite safety-guard pose")
+        if cfg.enable_hole_box_clip:
+            if np.any(p_current < p_hole + self._hole_box_lower - 1e-9) or np.any(
+                p_current > p_hole + self._hole_box_upper + 1e-9
+            ):
+                raise ValueError("Current pose is outside hole box; explicit recovery required")
 
         if cfg.enable_hole_box_clip:
             p_rel_H_candidate = p_safe - p_hole
@@ -178,7 +185,15 @@ class SafetyGuard:
             was_hole_box_clipped or was_step_clipped or was_yaw_abs_clipped or was_yaw_step_clipped
         )
 
-        final_safe = True
+        final_safe = bool(
+            np.all(np.isfinite(T_BT_safe))
+            and (not cfg.enable_hole_box_clip or (
+                np.all(p_rel_H_safe >= self._hole_box_lower - 1e-9)
+                and np.all(p_rel_H_safe <= self._hole_box_upper + 1e-9)))
+            and (not cfg.enable_step_clip or np.all(np.abs(delta_step_safe) <= self._step_max_xyz + 1e-9))
+        )
+        if not final_safe:
+            raise ValueError("Cannot satisfy both hole and step constraints")
 
         return SafetyGuardOutput(
             T_BT_in=candidate_T_BT.copy(),

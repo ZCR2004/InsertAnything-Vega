@@ -1,5 +1,9 @@
 # InsertAnything
 
+## RoCo Vega integration
+
+The new nine-task entry point is `run_roco_vega.py`: pinned SteadyHand perception/grasping, seven zero-force Hexagon-III RL insertions, and two planned battery insertions. See [RoCo deployment and calibration guide](roco_vega/README.md). Start with `--mode simulate`; live operation requires completed robot/task calibration.
+
 [![Isaac Sim](https://img.shields.io/badge/Isaac%20Sim-5.0-76B900?logo=nvidia&logoColor=white)](https://developer.nvidia.com/isaac/sim)
 [![Isaac Lab](https://img.shields.io/badge/Isaac%20Lab-2.2.1-76B900)](https://github.com/isaac-sim/IsaacLab)
 [![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)](https://www.python.org/)

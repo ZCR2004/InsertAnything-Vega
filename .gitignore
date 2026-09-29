@@ -79,3 +79,8 @@ tests/
 
 # Docker history
 .isaac-lab-docker-history
+
+# Local RoCo robot calibration, captured images and run journals
+/roco_runs/
+/configs/*.local.json
+/configs/verification_images/

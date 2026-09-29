@@ -174,10 +174,9 @@ class ActionPostprocessor:
 
             yaw_candidate = _wrap_to_pi(yaw_current + delta_yaw)
 
-            yaw_low = yaw_ref - max_abs
-            yaw_high = yaw_ref + max_abs
-            yaw_target, was_yaw_abs_clipped = _clip_with_flag(yaw_candidate, yaw_low, yaw_high)
-            yaw_target = _wrap_to_pi(yaw_target)
+            yaw_relative = _wrap_to_pi(yaw_candidate - yaw_ref)
+            yaw_relative, was_yaw_abs_clipped = _clip_with_flag(yaw_relative, -max_abs, +max_abs)
+            yaw_target = _wrap_to_pi(yaw_ref + yaw_relative)
         else:
             delta_yaw = 0.0
             yaw_candidate = yaw_ref

@@ -737,7 +737,8 @@ def main() -> None:
 
                 deadline = step_t0 + float(args.policy_period_s)
                 user_cmd = None
-                while time.monotonic() < deadline:
+                # Poll at least once even when a blocking Vega action overruns.
+                while True:
                     cmd = input_mgr.get_nowait()
                     if cmd in {"s", "success"}:
                         user_cmd = "success"
@@ -753,7 +754,9 @@ def main() -> None:
                         break
                     if cmd is not None:
                         print(f"[EP {episode_idx}] Ignore unknown command during episode: {cmd}")
-                    time.sleep(0.01)
+                    if time.monotonic() >= deadline:
+                        break
+                    time.sleep(min(0.01, max(0.0, deadline - time.monotonic())))
 
                 if user_cmd == "success":
                     episode_result = "success"

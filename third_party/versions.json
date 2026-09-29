@@ -1,0 +1,20 @@
+{
+  "steadyhand": {
+    "repository": "https://github.com/matveho/ROCO-SteadyHand",
+    "commit": "5efaa61368d6ad6777115c154b1fbe81e6db47b9",
+    "reviewed_date": "2026-09-29",
+    "included_paths": ["steadyhand", "configs", "calibration", "tools", "vendor", "docs", "README.md"],
+    "local_changes": "None; integration wrappers are in roco_vega. Calibration examples are upstream robot records, not calibration for our robot.",
+    "license_note": "Upstream tree did not include a top-level LICENSE at this commit. Existing notices retained; this manifest does not grant additional redistribution rights."
+  },
+  "official_vega_setup": {
+    "repository": "https://github.com/intelligent-control-lab/dexmate-setup",
+    "commit": "4be4d16140b25f730673d664b49c58280b07ef46",
+    "usage": "Competition URDF assumptions and CAN gripper driver as incorporated by the pinned SteadyHand revision"
+  },
+  "insertanything_reference": {
+    "repository": "https://github.com/mzhsoul/InsertAnything",
+    "commit": "f033da5ccbc35a34369a0ac86e04c3e74b1408a0"
+  },
+  "fork_base": "7885a79b690dd8040067a17465ef422a02b569cf"
+}

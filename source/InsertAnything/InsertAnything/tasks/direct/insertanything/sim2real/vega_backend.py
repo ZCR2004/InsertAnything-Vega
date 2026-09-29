@@ -3,7 +3,7 @@
 This replaces the Franka HTTP server. Poses use the same API-frame convention
 as that server: ``[x, y, z, roll, pitch, yaw]`` in the robot base, metres and
 XYZ Euler radians. On Vega the API frame is the SteadyHand TCP
-(``kinematics.ee_frame``, competition unit ``tip_l``). ``T_AT`` in the
+(``kinematics.ee_frame``, competition unit ``tip_r``). ``T_AT`` in the
 deployment YAML still maps that frame onto the policy fingertip.
 
 Each ``send_pose6`` blocks inside dexcontrol ``move_to_joint_pos`` until the
@@ -93,6 +93,7 @@ class VegaInsertRobot:
         confirm_head_motion: bool = False,
         confirm_physical_motion: bool = False,
         adapter=None,
+        owns_adapter: bool | None = None,
     ) -> None:
         if not 0.0 < float(speed_scale) <= 1.0:
             raise ValueError("speed_scale must be in (0, 1]")
@@ -104,6 +105,7 @@ class VegaInsertRobot:
         self.confirm_head_motion = bool(confirm_head_motion)
         self.confirm_physical_motion = bool(confirm_physical_motion)
         self._adapter = adapter
+        self._owns_adapter = (adapter is None) if owns_adapter is None else bool(owns_adapter)
         self._min_tcp_z_m: float | None = None
         self._prev_pose7: np.ndarray | None = None
         self._prev_time_s: float | None = None
@@ -131,10 +133,10 @@ class VegaInsertRobot:
         if self.grip_current_a is not None:
             cfg.setdefault("gripper", {})["grip_current_a"] = float(self.grip_current_a)
         if self.assume_grasped:
-            # Homing moves the jaw and would drop a peg that is already held.
-            gripper = cfg.setdefault("gripper", {})
-            gripper["home_on_connect"] = False
-            gripper["skip_home_verified"] = True
+            raise ValueError(
+                "assume_grasped requires an injected, already-connected and calibrated adapter; "
+                "a new Grippers object cannot recover calibration by skipping home"
+            )
 
         safety = dict(load_vega_skills().get("safety") or {})
         floor = safety.get("min_tcp_z_m")
@@ -178,8 +180,9 @@ class VegaInsertRobot:
         self._prev_time_s = now
 
         joints = np.asarray(observation.joint_positions, dtype=np.float64).reshape(7)
+        raw_velocity = observation.extras.get("joint_velocity")
         joint_velocity = np.asarray(
-            observation.extras.get("joint_velocity") or np.zeros(7),
+            np.zeros(7) if raw_velocity is None else raw_velocity,
             dtype=np.float64,
         ).reshape(7)
         force = None
@@ -198,7 +201,9 @@ class VegaInsertRobot:
             gripper_pos=_optional_gripper_position(adapter),
             force_K=force,
             torque_K=torque,
-            raw={"backend": "vega", "ee_frame": "tip_l"},
+            raw={"backend": "vega", "ee_frame": (
+                getattr(adapter, "config", {}).get("kinematics", {}).get("ee_frame", "tip_r")
+            )},
         )
 
     def send_pose6(self, pose6: np.ndarray) -> None:
@@ -224,7 +229,11 @@ class VegaInsertRobot:
         self._connected = False
         if adapter is None:
             return
-        adapter.close()
+        if self._owns_adapter:
+            adapter.close()
+
+    def stop(self) -> None:
+        self._require().stop()
 
     def _require(self):
         if self._adapter is None:
