@@ -5,6 +5,22 @@ import numpy as np
 from . import dependencies
 from steadyhand.models import Pose
 from .task_spec import pose
+from .policy_runtime.transforms import quat_inv, quat_mul
+
+
+def twist_between(prev_pose7: np.ndarray, prev_time_s: float, pose7: np.ndarray, now_s: float) -> np.ndarray:
+    """Finite-difference base twist of frame A: linear xyz, angular xyz."""
+    dt = float(now_s) - float(prev_time_s)
+    if dt < 1e-3:
+        return np.zeros(6, dtype=np.float64)
+    prev_pose7 = np.asarray(prev_pose7, dtype=np.float64).reshape(7)
+    pose7 = np.asarray(pose7, dtype=np.float64).reshape(7)
+    linear = (pose7[:3] - prev_pose7[:3]) / dt
+    q_delta = quat_mul(pose7[3:7], quat_inv(prev_pose7[3:7]))
+    if q_delta[3] < 0.0:
+        q_delta = -q_delta
+    angular = 2.0 * q_delta[:3] / dt
+    return np.concatenate([linear, angular], axis=0)
 
 
 def to_pose(value):
@@ -136,7 +152,6 @@ class RobotSession:
 
     def sample(self):
         from .monitor import Sample
-        from vega_backend import twist_between
         self.check()
         # SDK freshness must be checked by the concrete runtime; local receive time
         # alone is not evidence that a sensor sample is fresh.

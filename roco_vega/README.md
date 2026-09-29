@@ -1,6 +1,6 @@
-# RoCo Vega：SteadyHand 抓取 + InsertAnything 插入
+# RoCo Vega：策略接口与实现说明
 
-实现分支：`feat/roco-vega-rl-sequence`。本入口面向右臂 `tip_r`，固定 SteadyHand `5efaa61368d6ad6777115c154b1fbe81e6db47b9`。采用官方比赛改装 Vega 的关节位置控制和 CAN 二指夹爪；不使用 Franka 控制服务。来源见 [`third_party/versions.json`](../third_party/versions.json)。
+实现分支：`feat/roco-vega-rl-sequence`。本入口面向右臂 `tip_r`，固定 SteadyHand `5efaa61368d6ad6777115c154b1fbe81e6db47b9`。采用官方比赛改装 Vega 的关节位置控制和 CAN 二指夹爪；不使用 Franka 控制服务。来源见 [`third_party/versions.json`](../third_party/versions.json)。安装、权重下载与入口总览见[仓库 README](../README.md)。本次仅清理无关代码，没有把上游最新模板识别流程合入；差异见[对比说明](../docs/SteadyHand抓取对比_20260929.md)。
 
 首次上机请按 **[现场操作顺序](现场操作顺序.md)** 操作。其中包含相机/TCP/板面标定、只读记录 A、空爪路径、夹取、手动装夹后单任务插入的独立命令。
 
@@ -27,7 +27,7 @@
 
 ```bash
 python -m pip install -r requirements-roco.txt
-python -m unittest -v test_roco_vega test_roco_motion
+python -m unittest -v test_roco_vega test_roco_motion test_roco_runtime
 python run_roco_vega.py --mode simulate --batteries-only
 python run_roco_vega.py --mode simulate
 python run_roco_vega.py --mode template --output configs/roco.local.json
@@ -70,7 +70,7 @@ python run_roco_vega.py --mode template --output configs/roco.local.json
 d11d9a4849238dbdec4602efb86df6d260118fb7ca59e0f159a05546d2b14c08
 ```
 
-请从项目原有 checkpoint 下载说明获取该文件，填入路径。该权重不是在 RoCo 九任务或零力条件下重新训练过的模型；跨物体能力要逐任务验证。
+下载命令和文件路径见[仓库 README 的权重部分](../README.md#权重)。该权重不是在 RoCo 九任务或零力条件下重新训练过的模型；跨物体能力要逐任务验证。
 
 ## 真机入口
 
@@ -98,7 +98,7 @@ python run_roco_vega.py --mode live --config configs/roco.local.json --batteries
 
 该子集仅要求公共标定和两个电池完成；七个RL任务可留空。所有真机启动仍要求现场竖直起始姿态和已验证路径。
 
-失败后保留 `events.jsonl` 与原子更新的 `progress.json`。重启不会默默跳过旧任务，必须核实场景后明确选择单任务或重排执行。本轮调度不调用旧的 `run_multi_episode_closed_loop.py`；旧脚本仍是原单孔实验入口，不用于比赛串行任务。
+失败后保留 `events.jsonl` 与原子更新的 `progress.json`。重启不会默默跳过旧任务，必须核实场景后明确选择单任务或重排执行。旧的单孔执行入口已删除；所有现场执行使用本页与根目录 README 列出的 RoCo 入口。
 
 ## 模块与验证范围
 
@@ -106,6 +106,7 @@ python run_roco_vega.py --mode live --config configs/roco.local.json --batteries
 |---|---|
 | `frontend.py` | SteadyHand 板识别、已教区域关联、腕部 XY servo、抓取和放置验证 |
 | `motion.py` / `session.py` / `hardware.py` | 全程竖直约束、笛卡尔分段、IK路径检查、取消和新鲜状态读回 |
+| `policy_runtime/` | 从旧工程抽出的 checkpoint、观测、动作后处理与数学核心；不依赖 Isaac Lab 或 Franka HTTP |
 | `geometry.py` / `insertion.py` | Vega↔策略坐标、26D 零力观测、LSTM、RL/规划插入 |
 | `monitor.py` / `orchestrator.py` | 深度驻留、失败分支、释放退离、九任务调度和日志 |
 | `task_spec.py` / `preflight.py` | 标定合同、身份绑定、完整运行前检查 |
@@ -116,4 +117,4 @@ python run_roco_vega.py --mode live --config configs/roco.local.json --batteries
 
 识别接入的是固定版本 SteadyHand 的几何/图像处理；零件通过已教区域和尺寸匹配，并拒绝歧义。它不是任意散乱、任意遮挡场景下的语义识别器。真机接触效果、零力策略成功率、视觉模板阈值与周期稳定性仍需现场验证。
 
-2026-09-29 更新验证：Python 3.10下57项集成、配置及运动检查通过，包括生产frontend上的双电池抓取/规划插入、释放后15 cm退离与复位，及命令前/运动中的倾斜拒绝。测试环境复用了前次审查的PyYAML/requests依赖副本，没有安装现场SDK、Torch或该checkpoint，因此没有真实网络前向、视觉图像联调或真机运行。`--mode check` 已提供现场checkpoint前向检验，须在配置完成后执行。
+2026-09-29 清理后验证：60项离线测试覆盖生产frontend上的双电池抓取/规划插入、释放后15 cm退离与复位、命令前/运动中的倾斜拒绝，以及标定工具动态导入和运行依赖。删除了旧独立执行器的专用测试，保留当前执行路径的测试。本机没有现场SDK、Torch或该checkpoint，因此未进行真实网络前向、视觉图像联调或真机运行。`--mode check` 提供现场checkpoint前向检验，须在配置完成后执行。

@@ -4,9 +4,9 @@ import time
 from pathlib import Path
 import numpy as np
 from . import dependencies
-from action_postprocessor import ActionPostprocessor, ActionPostprocessorConfig
-from observation_builder import CalibrationData, build_observation
-from robot_state_adapter import RobotState
+from .policy_runtime.action_postprocessor import ActionPostprocessor, ActionPostprocessorConfig
+from .policy_runtime.observation_builder import CalibrationData, build_observation
+from .policy_runtime.robot_state_adapter import RobotState
 from .geometry import PolicyFrame, constrain_target, angle
 from .monitor import InsertionMonitor
 
@@ -28,7 +28,7 @@ class HexagonActor:
     def __init__(self, path, device="cpu"):
         verify_checkpoint(path)
         import torch
-        from torch_policy import TorchPolicyConfig, TorchRecurrentActorPolicy
+        from .policy_runtime.torch_policy import TorchPolicyConfig, TorchRecurrentActorPolicy
         self.torch, self.device = torch, device
         cfg = TorchPolicyConfig(obs_order=OBS_ORDER, device=device)
         self.model = TorchRecurrentActorPolicy.from_checkpoint(path, cfg)

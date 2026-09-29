@@ -20,7 +20,7 @@ from roco_vega.hardware import FreshVegaAdapter
 from roco_vega.orchestrator import Journal, Orchestrator
 from roco_vega.task_spec import load_config, EXECUTION_ORDER, BATTERIES
 from roco_vega.preflight import check_preflight
-from transforms import euler_xyz_to_quat
+from roco_vega.policy_runtime.transforms import euler_xyz_to_quat
 
 
 class RecordingAdapter(FakeAdapter):

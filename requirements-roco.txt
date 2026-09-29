@@ -1,6 +1,5 @@
 # Python >=3.10. SDK/Pinocchio/wrist camera drivers belong to the onsite robot environment.
 numpy>=1.24,<3
 PyYAML>=6,<7
-requests>=2.31,<3
 opencv-python>=4.8,<5
 torch>=2.2,<3

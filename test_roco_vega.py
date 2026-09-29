@@ -24,7 +24,7 @@ from roco_vega.frontend import select_part
 from roco_vega.task_spec import ORDER, EXECUTION_ORDER, BATTERIES, load_config, TaskSpec
 from roco_vega.template import calibration_template
 from roco_vega.preflight import check_preflight, digest
-from transforms import euler_xyz_to_quat
+from roco_vega.policy_runtime.transforms import euler_xyz_to_quat
 
 
 class IntegrationTest(unittest.TestCase):
@@ -191,7 +191,7 @@ class GeometryTest(unittest.TestCase):
         np.testing.assert_allclose(task.success_pose[:2], [0, 0])
 
     def test_yaw_wrap_near_pi(self):
-        from action_postprocessor import ActionPostprocessor, ActionPostprocessorConfig
+        from roco_vega.policy_runtime.action_postprocessor import ActionPostprocessor, ActionPostprocessorConfig
         processor = ActionPostprocessor(ActionPostprocessorConfig(yaw_enable=True, ema_factor=1))
         current = np.r_[0, 0, 0, euler_xyz_to_quat(0, 0, np.deg2rad(-179))]
         ref = np.r_[0, 0, 0, euler_xyz_to_quat(0, 0, np.deg2rad(179))]
@@ -313,16 +313,6 @@ class ConfigurationTest(unittest.TestCase):
         frontend.s = SimpleNamespace(adapter=SimpleNamespace(capture_wrist=lambda: frame))
         with self.assertRaisesRegex(RuntimeError, "STALE_WRIST"):
             frontend._wrist()
-
-    def test_legacy_guard_rejects_current_outside_box(self):
-        from safety_guard import SafetyGuard, SafetyGuardConfig
-        guard = SafetyGuard(SafetyGuardConfig(hole_box_upper=(.05,.05,.05),
-                                            enable_step_clip=True, step_max_xyz=(.004,)*3))
-        hole = np.array([0,0,0,0,0,0,1.])
-        current = hole.copy()
-        current[2] = .08
-        with self.assertRaisesRegex(ValueError, "outside hole box"):
-            guard.apply(current, hole, hole, hole)
 
 
 class StageTest(unittest.TestCase):
