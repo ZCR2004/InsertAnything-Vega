@@ -1,0 +1,63 @@
+{
+  "steadyhand": {
+    "repository": "https://github.com/matveho/ROCO-SteadyHand",
+    "commit": "5efaa61368d6ad6777115c154b1fbe81e6db47b9",
+    "reviewed_date": "2026-09-29",
+    "local_changes": "Retained source files are unchanged. Unused tools, Sharpa adapters, example flows and old docs removed. Only Vega runtime and calibration dependency closure retained; wrappers are in roco_vega. Upstream calibration examples are not calibration for our robot.",
+    "license_note": "Upstream tree did not include a top-level LICENSE at this commit. Existing notices retained; this manifest does not grant additional redistribution rights.",
+    "included_files": [
+      "calibration/vega.json",
+      "calibration/vega_board_manual_fallback.json",
+      "calibration/vega_tool_frame.template.json",
+      "configs/robots/vega.json",
+      "configs/robots/vega_1u_competition_kinematics.urdf",
+      "configs/skills/vega.json",
+      "configs/task_board.json",
+      "configs/task_coordinates.json",
+      "steadyhand/__init__.py",
+      "steadyhand/adapters/__init__.py",
+      "steadyhand/adapters/base.py",
+      "steadyhand/adapters/vega.py",
+      "steadyhand/board_calibration.py",
+      "steadyhand/board_geometry.py",
+      "steadyhand/cameras/__init__.py",
+      "steadyhand/cameras/vega.py",
+      "steadyhand/config.py",
+      "steadyhand/executor.py",
+      "steadyhand/geometry.py",
+      "steadyhand/grippers/__init__.py",
+      "steadyhand/grippers/vega.py",
+      "steadyhand/kinematics/__init__.py",
+      "steadyhand/kinematics/pinocchio_arm.py",
+      "steadyhand/models.py",
+      "steadyhand/search.py",
+      "steadyhand/skill_config.py",
+      "steadyhand/vega_camera_clear.py",
+      "steadyhand/vega_presets.py",
+      "steadyhand/vision/__init__.py",
+      "steadyhand/vision/board.py",
+      "steadyhand/vision/scene.py",
+      "steadyhand/vision/task_parts.py",
+      "steadyhand/vision/wrist_servo.py",
+      "tools/vega_board_five_point_calibrate.py",
+      "tools/vega_board_manual_calibrate.py",
+      "tools/vega_capture_snapshot.py",
+      "tools/vega_scene_perception.py",
+      "tools/vega_tool_frame_calibration.py",
+      "tools/vega_tool_frame_record.py",
+      "vendor/dexmate_setup/gripper.py"
+    ]
+  },
+  "official_vega_setup": {
+    "repository": "https://github.com/intelligent-control-lab/dexmate-setup",
+    "commit": "4be4d16140b25f730673d664b49c58280b07ef46",
+    "usage": "Competition URDF assumptions and CAN gripper driver as incorporated by the pinned SteadyHand revision"
+  },
+  "insertanything_reference": {
+    "repository": "https://github.com/mzhsoul/InsertAnything",
+    "commit": "f033da5ccbc35a34369a0ac86e04c3e74b1408a0",
+    "runtime_path": "roco_vega/policy_runtime",
+    "local_changes": "Inference modules relocated from fork source tree with package-relative imports; RobotState retained without Franka HTTP client. Training/Isaac assets and standalone closed-loop runner removed. Pose velocity helper retained in roco_vega/session.py. Pre-cleanup branch commit: 48a34827a997df801d976583d0080576e425c39f."
+  },
+  "fork_base": "7885a79b690dd8040067a17465ef422a02b569cf"
+}

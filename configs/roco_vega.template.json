@@ -1,0 +1,665 @@
+{
+  "schema_version": 1,
+  "calibrated": false,
+  "base_calibrated": false,
+  "working_arm": "right",
+  "tcp_frame": "tip_r",
+  "robot_config": "robot.local.json",
+  "board_calibration": "board.local.json",
+  "calibration_identity": {
+    "robot_name": null,
+    "base_frame": null,
+    "tcp_frame": "tip_r",
+    "robot_config_sha256": null,
+    "board_sha256": null,
+    "checkpoint_sha256": "d11d9a4849238dbdec4602efb86df6d260118fb7ca59e0f159a05546d2b14c08",
+    "measured_at_utc": null,
+    "grasp_convention": null
+  },
+  "policy": {
+    "task": "InsertAnything-HexagonHole-III-Direct-v0",
+    "force_mode": "zeros",
+    "checkpoint": "../.pretrained_checkpoints/hexagon_III.pth",
+    "device": "cpu"
+  },
+  "supervised": true,
+  "tcp_floor_m": null,
+  "command_timeout_s": 30,
+  "motion": {
+    "max_translation_step_m": 0.01,
+    "max_rotation_step_rad": 0.05,
+    "command_tilt_tolerance_rad": 0.005,
+    "feedback_tilt_tolerance_rad": 0.05,
+    "position_tolerance_m": 0.004,
+    "orientation_tolerance_rad": 0.04,
+    "max_joint_step_rad": 0.1,
+    "joint_path_sample_rad": 0.01
+  },
+  "reset_waypoints_xyzw": [],
+  "board_max_translation_m": null,
+  "board_max_rotation_deg": null,
+  "camera_clear_waypoints_xyzw": [],
+  "free_speed_scale": null,
+  "head_q_rad": null,
+  "head_speed_scale": null,
+  "tasks": [
+    {
+      "task_id": "gear_60teeth",
+      "strategy": "rl",
+      "calibrated": false,
+      "pick_calibrated": false,
+      "approach_calibrated": false,
+      "manual_load_waypoints_xyzw": [],
+      "success_pose_xyzw": null,
+      "entry_height_m": 0.045,
+      "retreat_height_m": 0.15,
+      "xy_workspace_m": null,
+      "step_m": 0.001,
+      "speed_scale": null,
+      "success": {
+        "z_tolerance_m": null,
+        "xy_tolerance_m": null,
+        "orientation_tolerance_rad": null,
+        "overshoot_m": null,
+        "dwell_s": 0.3,
+        "timeout_s": 30,
+        "no_progress_s": 5,
+        "progress_m": 0.0002,
+        "max_sample_gap_s": 0.5
+      },
+      "policy_mapping": {
+        "validated": false,
+        "success_pose_policy": null,
+        "hole_pose_policy": null,
+        "relative_quat_reference_xyzw": null,
+        "base_yaw_rad": 0
+      },
+      "pick": {
+        "source_board_xy_m": null,
+        "match_radius_m": null,
+        "ambiguity_margin_m": null,
+        "size_range_m": null,
+        "grasp_z_m": null,
+        "hover_height_m": 0.05,
+        "lift_height_m": 0.1,
+        "quaternion_xyzw": null,
+        "approach_waypoints_xyzw": [],
+        "feature_uv": null,
+        "goal_uv": null,
+        "current_a": null,
+        "speed_dps": null,
+        "descent_speed_scale": null,
+        "lift_speed_scale": null,
+        "held_fraction_range": null,
+        "open_min_fraction": null,
+        "servo": {
+          "probe_m": 0.012,
+          "gain": 0.65,
+          "max_step_m": 0.015,
+          "max_radius_m": 0.06,
+          "tolerance_px": 5,
+          "max_iterations": 8,
+          "speed_scale": 0.45
+        }
+      },
+      "transfer_waypoints_xyzw": [],
+      "verification": {
+        "retention": {
+          "mode": "operator"
+        },
+        "placement": {
+          "mode": "operator",
+          "view_pose_xyzw": null
+        }
+      }
+    },
+    {
+      "task_id": "gear_20teeth",
+      "strategy": "rl",
+      "calibrated": false,
+      "pick_calibrated": false,
+      "approach_calibrated": false,
+      "manual_load_waypoints_xyzw": [],
+      "success_pose_xyzw": null,
+      "entry_height_m": 0.045,
+      "retreat_height_m": 0.15,
+      "xy_workspace_m": null,
+      "step_m": 0.001,
+      "speed_scale": null,
+      "success": {
+        "z_tolerance_m": null,
+        "xy_tolerance_m": null,
+        "orientation_tolerance_rad": null,
+        "overshoot_m": null,
+        "dwell_s": 0.3,
+        "timeout_s": 30,
+        "no_progress_s": 5,
+        "progress_m": 0.0002,
+        "max_sample_gap_s": 0.5
+      },
+      "policy_mapping": {
+        "validated": false,
+        "success_pose_policy": null,
+        "hole_pose_policy": null,
+        "relative_quat_reference_xyzw": null,
+        "base_yaw_rad": 0
+      },
+      "pick": {
+        "source_board_xy_m": null,
+        "match_radius_m": null,
+        "ambiguity_margin_m": null,
+        "size_range_m": null,
+        "grasp_z_m": null,
+        "hover_height_m": 0.05,
+        "lift_height_m": 0.1,
+        "quaternion_xyzw": null,
+        "approach_waypoints_xyzw": [],
+        "feature_uv": null,
+        "goal_uv": null,
+        "current_a": null,
+        "speed_dps": null,
+        "descent_speed_scale": null,
+        "lift_speed_scale": null,
+        "held_fraction_range": null,
+        "open_min_fraction": null,
+        "servo": {
+          "probe_m": 0.012,
+          "gain": 0.65,
+          "max_step_m": 0.015,
+          "max_radius_m": 0.06,
+          "tolerance_px": 5,
+          "max_iterations": 8,
+          "speed_scale": 0.45
+        }
+      },
+      "transfer_waypoints_xyzw": [],
+      "verification": {
+        "retention": {
+          "mode": "operator"
+        },
+        "placement": {
+          "mode": "operator",
+          "view_pose_xyzw": null
+        }
+      }
+    },
+    {
+      "task_id": "rod_16mm",
+      "strategy": "rl",
+      "calibrated": false,
+      "pick_calibrated": false,
+      "approach_calibrated": false,
+      "manual_load_waypoints_xyzw": [],
+      "success_pose_xyzw": null,
+      "entry_height_m": 0.045,
+      "retreat_height_m": 0.15,
+      "xy_workspace_m": null,
+      "step_m": 0.001,
+      "speed_scale": null,
+      "success": {
+        "z_tolerance_m": null,
+        "xy_tolerance_m": null,
+        "orientation_tolerance_rad": null,
+        "overshoot_m": null,
+        "dwell_s": 0.3,
+        "timeout_s": 30,
+        "no_progress_s": 5,
+        "progress_m": 0.0002,
+        "max_sample_gap_s": 0.5
+      },
+      "policy_mapping": {
+        "validated": false,
+        "success_pose_policy": null,
+        "hole_pose_policy": null,
+        "relative_quat_reference_xyzw": null,
+        "base_yaw_rad": 0
+      },
+      "pick": {
+        "source_board_xy_m": null,
+        "match_radius_m": null,
+        "ambiguity_margin_m": null,
+        "size_range_m": null,
+        "grasp_z_m": null,
+        "hover_height_m": 0.05,
+        "lift_height_m": 0.1,
+        "quaternion_xyzw": null,
+        "approach_waypoints_xyzw": [],
+        "feature_uv": null,
+        "goal_uv": null,
+        "current_a": null,
+        "speed_dps": null,
+        "descent_speed_scale": null,
+        "lift_speed_scale": null,
+        "held_fraction_range": null,
+        "open_min_fraction": null,
+        "servo": {
+          "probe_m": 0.012,
+          "gain": 0.65,
+          "max_step_m": 0.015,
+          "max_radius_m": 0.06,
+          "tolerance_px": 5,
+          "max_iterations": 8,
+          "speed_scale": 0.45
+        }
+      },
+      "transfer_waypoints_xyzw": [],
+      "verification": {
+        "retention": {
+          "mode": "operator"
+        },
+        "placement": {
+          "mode": "operator",
+          "view_pose_xyzw": null
+        }
+      }
+    },
+    {
+      "task_id": "bolt_8mm",
+      "strategy": "rl",
+      "calibrated": false,
+      "pick_calibrated": false,
+      "approach_calibrated": false,
+      "manual_load_waypoints_xyzw": [],
+      "success_pose_xyzw": null,
+      "entry_height_m": 0.045,
+      "retreat_height_m": 0.15,
+      "xy_workspace_m": null,
+      "step_m": 0.001,
+      "speed_scale": null,
+      "success": {
+        "z_tolerance_m": null,
+        "xy_tolerance_m": null,
+        "orientation_tolerance_rad": null,
+        "overshoot_m": null,
+        "dwell_s": 0.3,
+        "timeout_s": 30,
+        "no_progress_s": 5,
+        "progress_m": 0.0002,
+        "max_sample_gap_s": 0.5
+      },
+      "policy_mapping": {
+        "validated": false,
+        "success_pose_policy": null,
+        "hole_pose_policy": null,
+        "relative_quat_reference_xyzw": null,
+        "base_yaw_rad": 0
+      },
+      "pick": {
+        "source_board_xy_m": null,
+        "match_radius_m": null,
+        "ambiguity_margin_m": null,
+        "size_range_m": null,
+        "grasp_z_m": null,
+        "hover_height_m": 0.05,
+        "lift_height_m": 0.1,
+        "quaternion_xyzw": null,
+        "approach_waypoints_xyzw": [],
+        "feature_uv": null,
+        "goal_uv": null,
+        "current_a": null,
+        "speed_dps": null,
+        "descent_speed_scale": null,
+        "lift_speed_scale": null,
+        "held_fraction_range": null,
+        "open_min_fraction": null,
+        "servo": {
+          "probe_m": 0.012,
+          "gain": 0.65,
+          "max_step_m": 0.015,
+          "max_radius_m": 0.06,
+          "tolerance_px": 5,
+          "max_iterations": 8,
+          "speed_scale": 0.45
+        }
+      },
+      "transfer_waypoints_xyzw": [],
+      "verification": {
+        "retention": {
+          "mode": "operator"
+        },
+        "placement": {
+          "mode": "operator",
+          "view_pose_xyzw": null
+        }
+      }
+    },
+    {
+      "task_id": "usb_a",
+      "strategy": "rl",
+      "calibrated": false,
+      "pick_calibrated": false,
+      "approach_calibrated": false,
+      "manual_load_waypoints_xyzw": [],
+      "success_pose_xyzw": null,
+      "entry_height_m": 0.045,
+      "retreat_height_m": 0.15,
+      "xy_workspace_m": null,
+      "step_m": 0.001,
+      "speed_scale": null,
+      "success": {
+        "z_tolerance_m": null,
+        "xy_tolerance_m": null,
+        "orientation_tolerance_rad": null,
+        "overshoot_m": null,
+        "dwell_s": 0.3,
+        "timeout_s": 30,
+        "no_progress_s": 5,
+        "progress_m": 0.0002,
+        "max_sample_gap_s": 0.5
+      },
+      "policy_mapping": {
+        "validated": false,
+        "success_pose_policy": null,
+        "hole_pose_policy": null,
+        "relative_quat_reference_xyzw": null,
+        "base_yaw_rad": 0
+      },
+      "pick": {
+        "source_board_xy_m": null,
+        "match_radius_m": null,
+        "ambiguity_margin_m": null,
+        "size_range_m": null,
+        "grasp_z_m": null,
+        "hover_height_m": 0.05,
+        "lift_height_m": 0.1,
+        "quaternion_xyzw": null,
+        "approach_waypoints_xyzw": [],
+        "feature_uv": null,
+        "goal_uv": null,
+        "current_a": null,
+        "speed_dps": null,
+        "descent_speed_scale": null,
+        "lift_speed_scale": null,
+        "held_fraction_range": null,
+        "open_min_fraction": null,
+        "servo": {
+          "probe_m": 0.012,
+          "gain": 0.65,
+          "max_step_m": 0.015,
+          "max_radius_m": 0.06,
+          "tolerance_px": 5,
+          "max_iterations": 8,
+          "speed_scale": 0.45
+        }
+      },
+      "transfer_waypoints_xyzw": [],
+      "verification": {
+        "retention": {
+          "mode": "operator"
+        },
+        "placement": {
+          "mode": "operator",
+          "view_pose_xyzw": null
+        }
+      }
+    },
+    {
+      "task_id": "hdmi",
+      "strategy": "rl",
+      "calibrated": false,
+      "pick_calibrated": false,
+      "approach_calibrated": false,
+      "manual_load_waypoints_xyzw": [],
+      "success_pose_xyzw": null,
+      "entry_height_m": 0.045,
+      "retreat_height_m": 0.15,
+      "xy_workspace_m": null,
+      "step_m": 0.001,
+      "speed_scale": null,
+      "success": {
+        "z_tolerance_m": null,
+        "xy_tolerance_m": null,
+        "orientation_tolerance_rad": null,
+        "overshoot_m": null,
+        "dwell_s": 0.3,
+        "timeout_s": 30,
+        "no_progress_s": 5,
+        "progress_m": 0.0002,
+        "max_sample_gap_s": 0.5
+      },
+      "policy_mapping": {
+        "validated": false,
+        "success_pose_policy": null,
+        "hole_pose_policy": null,
+        "relative_quat_reference_xyzw": null,
+        "base_yaw_rad": 0
+      },
+      "pick": {
+        "source_board_xy_m": null,
+        "match_radius_m": null,
+        "ambiguity_margin_m": null,
+        "size_range_m": null,
+        "grasp_z_m": null,
+        "hover_height_m": 0.05,
+        "lift_height_m": 0.1,
+        "quaternion_xyzw": null,
+        "approach_waypoints_xyzw": [],
+        "feature_uv": null,
+        "goal_uv": null,
+        "current_a": null,
+        "speed_dps": null,
+        "descent_speed_scale": null,
+        "lift_speed_scale": null,
+        "held_fraction_range": null,
+        "open_min_fraction": null,
+        "servo": {
+          "probe_m": 0.012,
+          "gain": 0.65,
+          "max_step_m": 0.015,
+          "max_radius_m": 0.06,
+          "tolerance_px": 5,
+          "max_iterations": 8,
+          "speed_scale": 0.45
+        }
+      },
+      "transfer_waypoints_xyzw": [],
+      "verification": {
+        "retention": {
+          "mode": "operator"
+        },
+        "placement": {
+          "mode": "operator",
+          "view_pose_xyzw": null
+        }
+      }
+    },
+    {
+      "task_id": "pin",
+      "strategy": "rl",
+      "calibrated": false,
+      "pick_calibrated": false,
+      "approach_calibrated": false,
+      "manual_load_waypoints_xyzw": [],
+      "success_pose_xyzw": null,
+      "entry_height_m": 0.045,
+      "retreat_height_m": 0.15,
+      "xy_workspace_m": null,
+      "step_m": 0.001,
+      "speed_scale": null,
+      "success": {
+        "z_tolerance_m": null,
+        "xy_tolerance_m": null,
+        "orientation_tolerance_rad": null,
+        "overshoot_m": null,
+        "dwell_s": 0.3,
+        "timeout_s": 30,
+        "no_progress_s": 5,
+        "progress_m": 0.0002,
+        "max_sample_gap_s": 0.5
+      },
+      "policy_mapping": {
+        "validated": false,
+        "success_pose_policy": null,
+        "hole_pose_policy": null,
+        "relative_quat_reference_xyzw": null,
+        "base_yaw_rad": 0
+      },
+      "pick": {
+        "source_board_xy_m": null,
+        "match_radius_m": null,
+        "ambiguity_margin_m": null,
+        "size_range_m": null,
+        "grasp_z_m": null,
+        "hover_height_m": 0.05,
+        "lift_height_m": 0.1,
+        "quaternion_xyzw": null,
+        "approach_waypoints_xyzw": [],
+        "feature_uv": null,
+        "goal_uv": null,
+        "current_a": null,
+        "speed_dps": null,
+        "descent_speed_scale": null,
+        "lift_speed_scale": null,
+        "held_fraction_range": null,
+        "open_min_fraction": null,
+        "servo": {
+          "probe_m": 0.012,
+          "gain": 0.65,
+          "max_step_m": 0.015,
+          "max_radius_m": 0.06,
+          "tolerance_px": 5,
+          "max_iterations": 8,
+          "speed_scale": 0.45
+        }
+      },
+      "transfer_waypoints_xyzw": [],
+      "verification": {
+        "retention": {
+          "mode": "operator"
+        },
+        "placement": {
+          "mode": "operator",
+          "view_pose_xyzw": null
+        }
+      }
+    },
+    {
+      "task_id": "battery_size1",
+      "strategy": "planned",
+      "calibrated": false,
+      "pick_calibrated": false,
+      "approach_calibrated": false,
+      "manual_load_waypoints_xyzw": [],
+      "success_pose_xyzw": null,
+      "entry_height_m": 0.045,
+      "retreat_height_m": 0.15,
+      "xy_workspace_m": null,
+      "step_m": 0.001,
+      "speed_scale": null,
+      "success": {
+        "z_tolerance_m": null,
+        "xy_tolerance_m": null,
+        "orientation_tolerance_rad": null,
+        "overshoot_m": null,
+        "dwell_s": 0.3,
+        "timeout_s": 30,
+        "no_progress_s": 5,
+        "progress_m": 0.0002,
+        "max_sample_gap_s": 0.5
+      },
+      "policy_mapping": null,
+      "pick": {
+        "source_board_xy_m": null,
+        "match_radius_m": null,
+        "ambiguity_margin_m": null,
+        "size_range_m": null,
+        "grasp_z_m": null,
+        "hover_height_m": 0.05,
+        "lift_height_m": 0.1,
+        "quaternion_xyzw": null,
+        "approach_waypoints_xyzw": [],
+        "feature_uv": null,
+        "goal_uv": null,
+        "current_a": null,
+        "speed_dps": null,
+        "descent_speed_scale": null,
+        "lift_speed_scale": null,
+        "held_fraction_range": null,
+        "open_min_fraction": null,
+        "servo": {
+          "probe_m": 0.012,
+          "gain": 0.65,
+          "max_step_m": 0.015,
+          "max_radius_m": 0.06,
+          "tolerance_px": 5,
+          "max_iterations": 8,
+          "speed_scale": 0.45
+        }
+      },
+      "transfer_waypoints_xyzw": [],
+      "verification": {
+        "retention": {
+          "mode": "operator"
+        },
+        "placement": {
+          "mode": "operator",
+          "view_pose_xyzw": null
+        }
+      }
+    },
+    {
+      "task_id": "battery_size5",
+      "strategy": "planned",
+      "calibrated": false,
+      "pick_calibrated": false,
+      "approach_calibrated": false,
+      "manual_load_waypoints_xyzw": [],
+      "success_pose_xyzw": null,
+      "entry_height_m": 0.045,
+      "retreat_height_m": 0.15,
+      "xy_workspace_m": null,
+      "step_m": 0.001,
+      "speed_scale": null,
+      "success": {
+        "z_tolerance_m": null,
+        "xy_tolerance_m": null,
+        "orientation_tolerance_rad": null,
+        "overshoot_m": null,
+        "dwell_s": 0.3,
+        "timeout_s": 30,
+        "no_progress_s": 5,
+        "progress_m": 0.0002,
+        "max_sample_gap_s": 0.5
+      },
+      "policy_mapping": null,
+      "pick": {
+        "source_board_xy_m": null,
+        "match_radius_m": null,
+        "ambiguity_margin_m": null,
+        "size_range_m": null,
+        "grasp_z_m": null,
+        "hover_height_m": 0.05,
+        "lift_height_m": 0.1,
+        "quaternion_xyzw": null,
+        "approach_waypoints_xyzw": [],
+        "feature_uv": null,
+        "goal_uv": null,
+        "current_a": null,
+        "speed_dps": null,
+        "descent_speed_scale": null,
+        "lift_speed_scale": null,
+        "held_fraction_range": null,
+        "open_min_fraction": null,
+        "servo": {
+          "probe_m": 0.012,
+          "gain": 0.65,
+          "max_step_m": 0.015,
+          "max_radius_m": 0.06,
+          "tolerance_px": 5,
+          "max_iterations": 8,
+          "speed_scale": 0.45
+        }
+      },
+      "transfer_waypoints_xyzw": [],
+      "verification": {
+        "retention": {
+          "mode": "operator"
+        },
+        "placement": {
+          "mode": "operator",
+          "view_pose_xyzw": null
+        }
+      }
+    }
+  ]
+}
